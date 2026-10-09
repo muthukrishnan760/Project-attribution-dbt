@@ -85,3 +85,22 @@ It contains purchase details and the corresponding First-Click and Last-Click at
 - Develop Python-based event generation.
 - Build a Streamlit dashboard to explore the attribution results.
 - Improve the setup instructions so other people can run the project.
+
+## Demo Event Ingestion
+
+The Python demo in `scripts/stream_events.py` creates five sample marketing events and loads them into the BigQuery table `labsattribution_dbt.streaming_demo_events`. The script checks for existing demo event IDs before loading, and `scripts/verify_events.py` queries the table to verify the results.
+
+### How to run
+
+```powershell
+python .\scripts\stream_events.py
+python .\scripts\verify_events.py
+```
+
+### Free-tier limitation
+
+BigQuery rejected streaming inserts in this project because streaming inserts are not allowed on the current free-tier setup. The demo therefore uses a BigQuery batch load job instead of true near-real-time streaming. This demonstrates event ingestion and verification, but it does not demonstrate streaming latency. The existing attribution models and tables are separate from this demo table.
+
+### Idempotency note
+
+The script skips event IDs already visible in the target table to avoid duplicate events on ordinary repeat runs. This is a simple demo safeguard, not a guarantee against concurrent runs or delayed query visibility. A production pipeline should use a durable deduplication strategy and monitor ingestion latency and failures.
