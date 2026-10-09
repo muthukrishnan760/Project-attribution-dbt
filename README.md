@@ -104,3 +104,27 @@ BigQuery rejected streaming inserts in this project because streaming inserts ar
 ### Idempotency note
 
 The script skips event IDs already visible in the target table to avoid duplicate events on ordinary repeat runs. This is a simple demo safeguard, not a guarantee against concurrent runs or delayed query visibility. A production pipeline should use a durable deduplication strategy and monitor ingestion latency and failures.
+
+## Dashboard
+
+The project includes a Streamlit dashboard for exploring First-Click and Last-Click attribution results in BigQuery.
+
+### Run the dashboard
+
+From the project root, activate the virtual environment and run:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m streamlit run .\scripts\dashboard.py
+```
+
+Open the local URL shown in the terminal, usually `http://localhost:8501`.
+
+### Dashboard features
+
+- Total conversion count and First-Click vs Last-Click attribution comparison
+- Conversion trend over the latest 14-day period available in the dataset
+- First-Click conversions by source
+- Demo event ingestion table showing batch-loaded events
+
+**Note:** The demo event table uses BigQuery batch loading because streaming inserts are not available in the current free-tier environment. It is not a true real-time streaming feed.
