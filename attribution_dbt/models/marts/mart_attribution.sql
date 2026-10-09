@@ -82,11 +82,9 @@ SELECT
 FROM purchases p
 
 LEFT JOIN first_click f
-    ON p.user_pseudo_id = f.user_pseudo_id
-    AND p.purchase_timestamp = f.purchase_timestamp
-    AND p.transaction_id = f.transaction_id
+ON p.user_pseudo_id = f.user_pseudo_id
+AND p.purchase_timestamp = f.purchase_timestamp
 
 LEFT JOIN last_click l
-    ON p.user_pseudo_id = l.user_pseudo_id
-    AND p.purchase_timestamp = l.purchase_timestamp
-    AND p.transaction_id = l.transaction_id
+ON p.user_pseudo_id = l.user_pseudo_id
+AND p.purchase_timestamp = l.purchase_timestamp

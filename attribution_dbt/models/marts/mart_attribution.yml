@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: mart_attribution
+    description: "Purchase-level attribution with first-click and last-click channels."
+    columns:
+      - name: user_pseudo_id
+        description: "Pseudonymous GA4 user identifier."
+        data_tests:
+          - not_null
+
+      - name: purchase_timestamp
+        description: "Purchase event timestamp in microseconds."
+        data_tests:
+          - not_null
