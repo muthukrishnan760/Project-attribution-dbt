@@ -1,0 +1,16 @@
+
+version: 2
+
+models:
+  - name: int_purchase_conversions
+    description: "One row per purchase event, prepared for attribution."
+    columns:
+      - name: user_pseudo_id
+        description: "Pseudonymous GA4 user identifier."
+        data_tests:
+          - not_null
+
+      - name: conversion_timestamp
+        description: "Purchase event time converted from microseconds."
+        data_tests:
+          - not_null

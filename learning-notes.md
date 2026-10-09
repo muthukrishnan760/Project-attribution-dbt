@@ -55,7 +55,7 @@ The project was initialized as a Git repository with:
     git init
 
 Git username and email were configured so commits are
-associated with the project author.
+associated with the project author
 
 ---
 
@@ -76,3 +76,14 @@ associated with the project author.
 - Add tests and documentation
 - Create the architecture diagram
 - Prepare the final demo
+
+Staging Model Validation
+On 9 October 2026, I successfully ran the dbt model stg_ga4_events in BigQuery.
+•	Destination: storied-precept-511013-d2.labsattribution_dbt.stg_ga4_events
+•	Materialization: View
+•	Validation: Queried 10 sample rows successfully
+•	Traffic observations: Sample events included google / organic, direct / none, and referral.
+•	Data quality observation: Some events including session_start, had null event-level traffic source and medium values in the sample.
+•	Design implication: Attribution logic must not assume every event has a usable marketing touchpoint. Missing and placeholder traffic values must be handled explicitly.
+•	Cost observation: BigQuery estimated 1.35 GB of data processed for the 10-row preview query. A LIMIT restricts returned rows but does not necessarily restrict bytes scanned.
+The preview validated that the view exists and returns data. Further checks are still needed for conversion revenue, attribution correctness, and data quality.
