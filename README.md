@@ -1,115 +1,203 @@
-# Real-Time Attribution Dashboard
+# Marketing Attribution Pipeline and Dashboard
 
 **CustomerLabs Data Engineer Assessment**
 
-## Project Overview
+## 1. Project Overview
 
-This project looks at how different marketing channels contribute to website purchases. I am using GA4 event data, Google BigQuery, and dbt to prepare the data and calculate First-Click and Last-Click attribution.
+This project explores how different marketing touchpoints contribute to website purchases. I built a data pipeline using the public GA4 sample dataset, Google BigQuery, and dbt, with First-Click and Last-Click attribution models.
 
-The data models and attribution logic are the main focus at this stage. Event generation and the dashboard are planned for later, so they are not described as completed features.
+I also added a Python script to generate sample marketing events and load them into BigQuery, along with a Streamlit dashboard to explore the attribution results.
 
-## Tech Stack
+The event ingestion demo currently uses a BigQuery batch-load job because streaming inserts were not available in my current environment. I have documented that limitation rather than presenting the demo as a real-time streaming pipeline.
 
-- **Google BigQuery:** Stores the data and runs queries.
-- **GA4 public dataset:** Provides the website event data.
-- **dbt:** Transforms the raw events and builds the attribution models.
-- **Git and GitHub:** Track code changes and manage the project repository.
-- **Python and Streamlit:** Planned for event generation and the dashboard.
+## 2. Tools Used
 
-## Data Pipeline
+- **Google BigQuery:** Stores the source data, transformed models, and sample demo events.
+- **GA4 public dataset:** Provides the website event data used for attribution.
+- **dbt:** Organises the SQL transformations into staging, intermediate, and mart models.
+- **Python:** Generates sample events and verifies the ingestion results.
+- **Streamlit:** Displays the attribution results and sample events.
+- **Git and GitHub:** Track the project changes and maintain the source code.
 
-The pipeline is organised into staging, intermediate, and mart models. Each layer handles a specific part of the process.
+## 3. Architecture
 
-- **Staging:** Prepares GA4 event data for further use.
-- **Purchase conversions:** Identifies purchase events and keeps details such as the user ID, purchase time, transaction ID, and revenue.
-- **Marketing touchpoints:** Prepares traffic source, medium, campaign, and channel information.
-- **Attribution touches:** Matches purchases with eligible earlier touchpoints from the same user within a 14-day lookback window.
-- **Attribution mart:** Combines the First-Click and Last-Click results into a final table for analysis.
+The main pipeline follows this flow:
 
-## Attribution Logic
+```text
+GA4 Public Dataset
+        |
+        v
+  Staging Model
+        |
+        v
+ Intermediate Models
+        |
+        v
+ First-Click and Last-Click Marts
+        |
+        v
+  Combined Attribution Mart
+        |
+        v
+  Streamlit Dashboard
+```
 
-The project currently uses two attribution models.
+The sample event demo follows a separate path:
 
-- **First-Click:** Gives credit to the earliest eligible touchpoint before a purchase.
-- **Last-Click:** Gives credit to the latest eligible touchpoint before a purchase.
+```text
+Python Event Generator
+        |
+        v
+ BigQuery Batch-Load Job
+        |
+        v
+ streaming_demo_events
+        |
+        v
+ Verification Script / Dashboard
+```
 
-Both models use a 14-day lookback window. Purchases without an eligible touchpoint remain unattributed rather than being assigned a channel without supporting data.
+The sample events are not automatically included in the GA4 attribution calculations. The two paths demonstrate the transformation pipeline and the separate event-ingestion process.
 
-## Current Progress
+More detail is available in [`docs/architecture.md`](docs/architecture.md) and [`docs/design-notes.md`](docs/design-notes.md).
 
-The following work has been completed:
+## 4. Data Models
 
-- Set up dbt to work with BigQuery.
-- Created staging, intermediate, and mart models.
-- Implemented First-Click and Last-Click attribution logic.
-- Built the final attribution table in BigQuery.
-- Added data-quality tests for important fields and confirmed that all four tests pass.
+The dbt project is located in `attribution_dbt/`.
 
-## Current Results
+The main models are organised as follows:
 
-The latest run of the attribution table produced these results:
+| Model | Purpose |
+|---|---|
+| `stg_ga4_events` | Prepares GA4 event data for further transformations. |
+| `int_purchase_conversions` | Identifies purchase events and prepares conversion details. |
+| `int_marketing_touchpoints` | Prepares marketing touchpoint and traffic-source information. |
+| `int_attribution_touches` | Matches purchases to eligible touchpoints. |
+| `mart_first_click_attribution` | Produces First-Click attribution results. |
+| `mart_last_click_attribution` | Produces Last-Click attribution results. |
+| `mart_attribution` | Combines the attribution results for reporting. |
+
+The models are built in BigQuery. The intermediate models keep the logic separated so it is easier to understand and troubleshoot.
+
+## 5. Attribution Logic and Assumptions
+
+I implemented two attribution models.
+
+- **First-Click:** Assigns conversion credit to the earliest eligible marketing touchpoint before a purchase.
+- **Last-Click:** Assigns conversion credit to the latest eligible marketing touchpoint before a purchase.
+
+Both models use a 14-day lookback window.
+
+Other assumptions and limitations:
+
+- Purchases without an eligible touchpoint remain unattributed.
+- Touchpoints and purchases are matched using the available GA4 pseudonymous user identifier.
+- This matching does not resolve identities across different devices or browsers.
+- Event timestamps determine touchpoint order. Events with identical timestamps may need a stable secondary key to guarantee deterministic ordering.
+- Each model assigns full credit to its selected touchpoint. The models are separate reporting approaches, not fractional attribution models.
+
+These are intentionally simple rules for comparing two commonly used attribution approaches.
+
+## 6. Current Results and Tests
+
+The latest validation run produced the following results:
 
 | Metric | Count |
 |---|---:|
-| Total purchase records | 5,692 |
+| Total purchase conversions | 5,692 |
 | First-Click attributed | 5,400 |
 | Last-Click attributed | 5,400 |
 | Unattributed purchases | 292 |
 
-The remaining 292 purchases had no eligible touchpoints within the 14-day lookback window in the checks performed. They remain unattributed because there is no eligible touchpoint to support assigning a channel.
+The 292 unattributed purchases did not have an eligible touchpoint within the configured lookback window in the checks performed.
 
-## Running the Project
+I also ran the dbt data-quality tests. All four configured `not_null` tests passed for important conversion and attribution fields.
 
-Before running the commands, make sure your Python virtual environment is active and your dbt profile is configured to connect to BigQuery.
+These results reflect the current dataset and model run. They may change if the underlying data or transformation logic changes.
 
-To build the final attribution model, run:
+## 7. Prerequisites
 
-    dbt run --project-dir attribution_dbt --select mart_attribution
+Before running the project, make sure you have:
 
-To run the data-quality tests, run:
+- Python installed.
+- Access to the configured Google Cloud project and BigQuery dataset.
+- Google Cloud credentials that allow the required BigQuery operations.
+- A working dbt profile configured for BigQuery.
+- The project repository cloned locally.
 
-    dbt test --project-dir attribution_dbt
+The current setup uses the BigQuery project and dataset configured for this assessment. If you use a different Google Cloud project, update the dbt profile and relevant script configuration accordingly.
 
-## Output
+## 8. Running the dbt Pipeline
 
-The final table is available in BigQuery as:
+Run the following commands from the project root.
 
-`labsattribution_dbt.mart_attribution`
+### Step 1: Activate the virtual environment
 
-It contains purchase details and the corresponding First-Click and Last-Click attribution results.
+On Windows PowerShell:
 
-## Next Steps
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-- Add tests for attribution logic and edge cases.
-- Review purchases with missing transaction IDs and repeated purchase events.
-- Develop Python-based event generation.
-- Build a Streamlit dashboard to explore the attribution results.
-- Improve the setup instructions so other people can run the project.
+If you have not created the environment yet, create one and install the dependencies specified by your project setup before continuing.
 
-## Demo Event Ingestion
+### Step 2: Check the dbt connection
 
-The Python demo in `scripts/stream_events.py` creates five sample marketing events and loads them into the BigQuery table `labsattribution_dbt.streaming_demo_events`. The script checks for existing demo event IDs before loading, and `scripts/verify_events.py` queries the table to verify the results.
+```powershell
+dbt debug --project-dir attribution_dbt
+```
 
-### How to run
+This checks the dbt configuration and connection. If it fails, review the active profile, project settings, credentials, and BigQuery permissions.
+
+### Step 3: Build the attribution models
+
+```powershell
+dbt run --project-dir attribution_dbt
+```
+
+To run only the combined attribution mart:
+
+```powershell
+dbt run --project-dir attribution_dbt --select mart_attribution
+```
+
+Run the full project when you need to build or refresh the upstream models as well.
+
+### Step 4: Run the tests
+
+```powershell
+dbt test --project-dir attribution_dbt
+```
+
+Review the command output and resolve any failed tests before relying on the results.
+
+## 9. Running the Event Ingestion Demo
+
+The event demo is implemented in `scripts/stream_events.py`. It generates five sample events and loads them into the BigQuery table `labsattribution_dbt.streaming_demo_events`.
+
+Run:
 
 ```powershell
 python .\scripts\stream_events.py
+```
+
+Then verify the loaded records:
+
+```powershell
 python .\scripts\verify_events.py
 ```
 
-### Free-tier limitation
+The verification script checks the target table for the demo events.
 
-BigQuery rejected streaming inserts in this project because streaming inserts are not allowed on the current free-tier setup. The demo therefore uses a BigQuery batch load job instead of true near-real-time streaming. This demonstrates event ingestion and verification, but it does not demonstrate streaming latency. The existing attribution models and tables are separate from this demo table.
+### Ingestion limitation
 
-### Idempotency note
+The script uses a BigQuery batch-load job, not a continuous streaming API. Streaming inserts were not available in the current free-tier environment, so this demo does not establish true streaming latency or continuous event processing.
 
-The script skips event IDs already visible in the target table to avoid duplicate events on ordinary repeat runs. This is a simple demo safeguard, not a guarantee against concurrent runs or delayed query visibility. A production pipeline should use a durable deduplication strategy and monitor ingestion latency and failures.
+The script checks for existing event IDs before loading. This helps avoid duplicates during ordinary repeat runs, but it does not guarantee exactly-once processing under concurrent execution or every possible retry scenario.
 
-## Dashboard
+For production use, I would add a stronger event-ID-based deduplication process, safe retry handling, and monitoring for ingestion failures and event freshness.
 
-The project includes a Streamlit dashboard for exploring First-Click and Last-Click attribution results in BigQuery.
-
-### Run the dashboard
+## 10. Running the Dashboard
 
 From the project root, activate the virtual environment and run:
 
@@ -118,13 +206,122 @@ From the project root, activate the virtual environment and run:
 python -m streamlit run .\scripts\dashboard.py
 ```
 
-Open the local URL shown in the terminal, usually `http://localhost:8501`.
+Open the local URL printed in the terminal, usually:
 
-### Dashboard features
+`http://localhost:8501`
 
-- Total conversion count and First-Click vs Last-Click attribution comparison
-- Conversion trend over the latest 14-day period available in the dataset
-- First-Click conversions by source
-- Demo event ingestion table showing batch-loaded events
+The dashboard includes:
 
-**Note:** The demo event table uses BigQuery batch loading because streaming inserts are not available in the current free-tier environment. It is not a true real-time streaming feed.
+- Total purchase conversions.
+- First-Click and Last-Click attribution comparison.
+- A purchase trend for the latest available 14-day period in the dataset.
+- A source-level attribution breakdown.
+- A table of the sample events loaded into BigQuery.
+
+The 14-day trend is based on the latest available dates in the dataset, not necessarily the current calendar date. The demo event panel reads from the separate batch-loaded event table.
+
+## 11. Troubleshooting and Basic Checks
+
+### dbt connection fails
+
+Run:
+
+```powershell
+dbt debug --project-dir attribution_dbt
+```
+
+Check that the correct virtual environment is active, the BigQuery profile is configured, credentials are valid, and the account has the required permissions.
+
+### dbt tests fail
+
+Run:
+
+```powershell
+dbt test --project-dir attribution_dbt
+```
+
+Read the failing test output and inspect the relevant model and data. Do not assume the attribution results are valid until the failure is understood.
+
+### Demo events are missing
+
+Run the ingestion script again and inspect its output:
+
+```powershell
+python .\scripts\stream_events.py
+```
+
+Then check the table:
+
+```powershell
+python .\scripts\verify_events.py
+```
+
+If the events are still missing, check the configured Google Cloud project and dataset, BigQuery permissions, and the load-job error details.
+
+### Dashboard does not start
+
+Run:
+
+```powershell
+python -m streamlit run .\scripts\dashboard.py
+```
+
+Check the terminal output for missing dependencies, authentication problems, or BigQuery query errors. Confirm that the virtual environment is active and the configured credentials can access the required tables.
+
+### Dashboard numbers look unexpected
+
+Confirm that the dbt models have been built and that the dashboard is querying the intended BigQuery project and dataset. Remember that the sample event table is separate from the GA4 attribution models.
+
+## 12. Cost and Performance Notes
+
+The project uses BigQuery for transformations and reporting, so query execution and storage can incur costs depending on the account and billing configuration.
+
+To keep usage under control:
+
+- Select only the columns required by each model.
+- Filter data to the relevant date range where possible.
+- Avoid repeatedly rebuilding models when a smaller selection is sufficient.
+- Review BigQuery job details if a query scans more data than expected.
+- Monitor storage and query usage in the Google Cloud project.
+
+Actual costs depend on the data processed, the selected BigQuery configuration, and the account's billing terms. This project does not claim a measured production cost.
+
+## 13. Current Limitations and Next Improvements
+
+The main parts of the project are implemented, but there are areas I would improve before using this as a production pipeline.
+
+1. Replace the batch-load event demo with a streaming-capable ingestion path and measure ingestion latency.
+2. Strengthen event deduplication and retry handling.
+3. Add tests for attribution edge cases, including timestamp ties and repeated purchase events.
+4. Improve monitoring for data freshness, ingestion failures, and dbt model failures.
+5. Review the identity-matching assumptions and add a deterministic tie-breaker where appropriate.
+
+I would prioritise reliable ingestion, clear attribution rules, and data-quality checks before adding more complex attribution models.
+
+## 14. Repository Structure
+
+The main project files are organised as follows:
+
+```text
+cuslabs-attri/
+├── attribution_dbt/
+│   └── models/
+├── scripts/
+│   ├── stream_events.py
+│   ├── verify_events.py
+│   └── dashboard.py
+├── docs/
+│   ├── architecture.md
+│   └── design-notes.md
+├── README.md
+├── worklog.md
+└── learning-notes.md
+```
+
+The dbt models, Python scripts, documentation, and worklog are kept separate so the project is easier to navigate.
+
+## 15. Summary
+
+This project brings together a dbt-based attribution pipeline, First-Click and Last-Click models, BigQuery validation, a Streamlit dashboard, and a small event-ingestion demo.
+
+The attribution pipeline and dashboard are implemented. The event-ingestion demo currently uses batch loading rather than true streaming, and I have documented that limitation along with the areas that would need further work for a production deployment.
